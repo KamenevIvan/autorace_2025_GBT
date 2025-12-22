@@ -19,7 +19,7 @@ class Competition(Node):
         self.phase = 0
         self.test = True
         
-        self.declare_parameter('color_stab', 0.05) # Мы не знаем цвет точно, поэтому оставляем небольшой разброс
+        self.declare_parameter('color_stab', 0.08) # Мы не знаем цвет точно, поэтому оставляем небольшой разброс
         self.declare_parameter('speed_lin', 0.16) # Линейная скорость
         self.declare_parameter('road_c', [40, 40, 40]) # этот параметр нужен для удержания в полосе
         self.color_stab = self.get_parameter('color_stab').value
@@ -39,14 +39,13 @@ class Competition(Node):
     def pixel_color_stab(self, image, color, threshold, color_stab):
         """Данная функция предназначена для поиска и сопоставления пикселей"""
         
-        max_diff = 255 * color_stab
-
         diff = np.abs(image.astype(np.float32) - color.astype(np.float32))
+        max_diff = 255 * color_stab
         matches = np.all(diff <= max_diff, axis=2)
         
-        percentage = np.sum(matches) / (image.shape[0] * image.shape[1])
+        perc = np.sum(matches) / (image.shape[0] * image.shape[1])
         
-        return percentage >= threshold
+        return perc >= threshold
 
     def surr_color(self, image, point, r=5):
         """Данная функция вычисляет цвет изображения в некотором радиусе от точки"""
@@ -72,7 +71,7 @@ class Competition(Node):
         diff = np.abs(color1.astype(np.int16) - color2.astype(np.int16))
         return np.all(diff <= tolerance)
     
-    def detect_blue_sign_and_arrow(self, cv_image):
+    def turning_direction(self, cv_image):
         """Обнаружение синего знака и определение направления стрелки"""
         height, width, _ = cv_image.shape
         
@@ -154,7 +153,6 @@ class Competition(Node):
                         sub_circle_mask = circle_mask[y:y+h, x:x+w]
                         
                         white_mask = cv2.bitwise_and(adaptive_mask, adaptive_mask, mask=sub_circle_mask)
-                        self.get_logger().info('Fallback to adaptive threshold - HSV not captured arrow')
                     
                     # Уменьшаем erode для стрелки
                     if w < 90:
@@ -170,8 +168,8 @@ class Competition(Node):
                     white_mask = cv2.dilate(white_mask, kernel_white, iterations=dilate_iter)
                     
                     # Вывод только решающей маски
-                    cv2.imshow('Final Arrow Mask (Isolated Circle)', white_mask)
-                    cv2.waitKey(1)
+                    # cv2.imshow('Final Arrow Mask (Isolated Circle)', white_mask)
+                    # cv2.waitKey(1)
                     
                     lines = cv2.HoughLinesP(white_mask, rho=1, theta=np.pi/180, threshold=20, minLineLength=10, maxLineGap=5)
                     if lines is not None:
@@ -185,7 +183,7 @@ class Competition(Node):
                             arrow_direction = "LEFT"
                         else:
                             arrow_direction = "RIGHT"
-                        self.get_logger().info(f'Hough avg angle: {avg_angle}')
+                        
                     else:
                         arrow_direction = None
                     
@@ -210,8 +208,7 @@ class Competition(Node):
                             arrow_direction = "LEFT"
                         else:
                             arrow_direction = "RIGHT"
-                        self.get_logger().info(f' MinAreaRect angle: {angle}')
-                        
+
                         # Начальная по bounding
                         if arrow_center_x < sign_center_x:
                             arrow_direction = "LEFT"
@@ -276,17 +273,7 @@ class Competition(Node):
                                     arrow_direction = "LEFT"  # Инвертировали (для влево)
                                 else:
                                     arrow_direction = None  # Можно добавить fallback: if None, использовать Hough (arrow_direction remains from previous)
-                                
-                                self.get_logger().info(f'Bottom y: {bottom_y}, Center x: {center_x}, Left sum: {left_sum}, Right sum: {right_sum}')
-                        
-                        # Финальная проверка размера: ослабляем (w < 80 or area < 7000), чтобы определять раньше
-                        if w < 90 or area < 8000:
-                            self.get_logger().info(f'Знак ещё мал (w={w}, area={area:.0f}), но направление принято: {arrow_direction}')
 
-                        # Debug центр массы
-                        self.get_logger().info(f'CX: {cx_arrow}, Center: {sign_center_x}')
-                        self.get_logger().info(f'CX: {cx_arrow}, Center: {sign_center_x}, Left px: {left_pixels}, Right px: {right_pixels}')
-            
             debug_img = cv_image.copy()
             cv2.rectangle(debug_img, (center_start_x, center_start_y), 
                         (center_end_x, center_end_y), (255, 0, 0), 2)
@@ -313,14 +300,14 @@ class Competition(Node):
                         cv2.putText(debug_img, direction_text, (full_x, full_y + h + 30), 
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, text_color, 2)
             
-            cv2.imshow('Blue Sign Detection', debug_img)
-            cv2.waitKey(1)
+            #cv2.imshow('Blue Sign Detection', debug_img)
+            #cv2.waitKey(1)
             
             return True, (full_x, full_y, w, h), area, arrow_direction
         
         return False, None, 0, None
 
-    def turning_direction(self, image):
+    def hturning_direction(self, image):
         """Вспомогательная фунция определения знака"""
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         h, w = gray.shape
@@ -380,8 +367,6 @@ class Competition(Node):
         pt_crds = [(250, height - 5), (width - 250, height - 5), (200, height - 20), (width - 200, height - 20)]
 
         pt_clr = [self.surr_color(image, pt_crds[0], radius=5), self.surr_color(image, pt_crds[1], radius=5), self.surr_color(image, pt_crds[2], radius=5), self.surr_color(image, pt_crds[3], radius=5)]
-
-        
 
         a = self.close_colors(pt_clr[0], self.road_c)
         b = self.close_colors(pt_clr[1], self.road_c)
@@ -459,17 +444,11 @@ class Competition(Node):
                     self.publisher.publish(cmd)
                     return
             if self.phase == 3:
-                self.direction = self.turning_direction(cv_image)
+                self.direction = self.hturning_direction(cv_image)
                 self.phase = 4
             if self.phase == 4:
-                result = self.pixel_color_stab(
-                    cv_image, 
-                    np.array([255, 100, 50], dtype=np.uint8),
-                    0.005,
-                    self.color_stab
-                )
+                result = self.pixel_color_stab( cv_image, np.array([255, 100, 50], dtype=np.uint8), 0.005, self.color_stab)
                 if result:
-
                     cmd = Twist()
                     cmd.linear.x = 0.0
                     self.publisher.publish(cmd)
