@@ -13,7 +13,7 @@ class Competition(Node):
         super().__init__('competition')
         
         self.declare_parameter('tolerance_percent', 0.075)
-        self.declare_parameter('linear_speed', 0.16)
+        self.declare_parameter('linear_speed', 0.14)
         self.declare_parameter('track_color', [40, 40, 40])
         self.tolerance_percent = self.get_parameter('tolerance_percent').value
         self.linear_speed = self.get_parameter('linear_speed').value
@@ -455,7 +455,7 @@ class Competition(Node):
                 result, percentage = self.surrounding_color_checker(
                     cv_image, 
                     np.array([255, 100, 50], dtype=np.uint8),
-                    0.002,
+                    0.004,
                     self.tolerance_percent
                 )
                 if result:
