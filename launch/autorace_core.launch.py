@@ -17,11 +17,6 @@ def generate_launch_description():
             package=pkg_name,
             executable='competition',
             name='competition',
-            output='screen',
-            parameters=[{
-                'color_stab': 0.08,
-                'speed_lin': 0.16,
-                'road_c': [40, 40, 40]
-            }]
+            output='screen'
         )
     ])

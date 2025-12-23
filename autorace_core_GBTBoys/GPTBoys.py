@@ -66,9 +66,9 @@ class Competition(Node):
             
         return avg_color.astype(np.uint8)
     
-    def close_colors(self, color1, color2, tolerance=10):
+    def close_colors(self, c1, c2, tolerance=10):
         """Схожесть цветов"""
-        diff = np.abs(color1.astype(np.int16) - color2.astype(np.int16))
+        diff = np.abs(c1.astype(np.int16) - c2.astype(np.int16))
         return np.all(diff <= tolerance)
     
     def turning_direction(self, cv_image):
@@ -366,7 +366,7 @@ class Competition(Node):
         height, width = image.shape[:2]
         pt_crds = [(250, height - 5), (width - 250, height - 5), (200, height - 20), (width - 200, height - 20)]
 
-        pt_clr = [self.surr_color(image, pt_crds[0], radius=5), self.surr_color(image, pt_crds[1], radius=5), self.surr_color(image, pt_crds[2], radius=5), self.surr_color(image, pt_crds[3], radius=5)]
+        pt_clr = [self.surr_color(image, pt_crds[0], r=5), self.surr_color(image, pt_crds[1], r=5), self.surr_color(image, pt_crds[2], r=5), self.surr_color(image, pt_crds[3], r=5)]
 
         a = self.close_colors(pt_clr[0], self.road_c)
         b = self.close_colors(pt_clr[1], self.road_c)
@@ -426,12 +426,7 @@ class Competition(Node):
                     return
             if self.phase == 2:
                 cv_crop = cv_image[:, 350:-350]
-                result = self.pixel_color_stab(
-                    cv_crop, 
-                    np.array([0, 55, 90], dtype=np.uint8),
-                    0.075,
-                    self.color_stab
-                )
+                result = self.pixel_color_stab( cv_crop, np.array([0, 55, 90], dtype=np.uint8), 0.075, self.color_stab)
                 if result:
                     cmd = Twist()
                     cmd.linear.x = 0.0
