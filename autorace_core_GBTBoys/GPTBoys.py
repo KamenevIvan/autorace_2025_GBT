@@ -39,23 +39,21 @@ class Competition(Node):
     def pixel_color_stab(self, image, color, threshold, color_stab):
         """Данная функция предназначена для поиска и сопоставления пикселей"""
         
-        diff = np.abs(image.astype(np.float32) - color.astype(np.float32))
         max_diff = 255 * color_stab
+        diff = np.abs(image.astype(np.float32) - color.astype(np.float32))
         matches = np.all(diff <= max_diff, axis=2)
-        
-        perc = np.sum(matches) / (image.shape[0] * image.shape[1])
-        
-        return perc >= threshold
+        percentage = np.sum(matches) / (image.shape[0] * image.shape[1])
 
-    def surr_color(self, image, point, r=5):
+        return percentage >= threshold, percentage
+
+    def surr_color(self, image, point, radius=5):
         """Данная функция вычисляет цвет изображения в некотором радиусе от точки"""
         x, y = int(point[0]), int(point[1])
         
-        x_min = max(0, x - r)
-        x_max = min(image.shape[1], x + r + 1)
-
-        y_min = max(0, y - r)
-        y_max = min(image.shape[0], y + r + 1)
+        x_min = max(0, x - radius)
+        x_max = min(image.shape[1], x + radius + 1)
+        y_min = max(0, y - radius)
+        y_max = min(image.shape[0], y + radius + 1)
         
         region = image[y_min:y_max, x_min:x_max]
         
@@ -359,42 +357,43 @@ class Competition(Node):
     def stabilization_on_road(self, image, base_speed, base_angular=0.0):
         """Система удержания в полосе"""
 
-        stabilization_angle = 0.0
-        high_pt_stab_angle = 2.5
-        low_pt_stab_angle = 5.0
-
         height, width = image.shape[:2]
-        pt_crds = [(250, height - 5), (width - 250, height - 5), (200, height - 20), (width - 200, height - 20)]
+        points_cords = {
+            'BL': (250, height - 5), # Левая нижняя точка (точка 0)
+            'BR': (width - 250, height - 5), # Правая нижняя точка (точка 1)
+            'TL': (200, height - 20), # Левая верхняя точка (точка 2)
+            'TR': (width - 200, height - 20) # Правая верхняя точка (точка 3)
+        }
 
-        pt_clr = [self.surr_color(image, pt_crds[0], r=5), self.surr_color(image, pt_crds[1], r=5), self.surr_color(image, pt_crds[2], r=5), self.surr_color(image, pt_crds[3], r=5)]
+        # Получаем цвета для каждой точки
+        points_colors = {
+            'BL': self.get_point_color(image, points_cords['BL'], radius=5),
+            'BR': self.get_point_color(image, points_cords['BR'], radius=5),
+            'TL': self.get_point_color(image, points_cords['TL'], radius=5),
+            'TR': self.get_point_color(image, points_cords['TR'], radius=5)
+        }
 
-        a = self.close_colors(pt_clr[0], self.road_c)
-        b = self.close_colors(pt_clr[1], self.road_c)
-        c = not self.close_colors(pt_clr[2], self.road_c)
-        d = self.close_colors(pt_clr[3], self.road_c)
-
-        if not a:
-            stabilization_angle -= high_pt_stab_angle
-
-        if not b:
-            stabilization_angle += high_pt_stab_angle
-
-        if not c:
-            stabilization_angle -= low_pt_stab_angle
-
-        if not d:
-            stabilization_angle += low_pt_stab_angle
+        angle_to_rotate = 0.0
+        if not self.is_color_similar(points_colors['BL'], self.track_color):
+            angle_to_rotate -= 2.5
+        if not self.is_color_similar(points_colors['BR'], self.track_color):
+            angle_to_rotate += 2.5
+        if not self.is_color_similar(points_colors['TL'], self.track_color):
+            angle_to_rotate -= 5.0
+        if not self.is_color_similar(points_colors['TR'], self.track_color):
+            angle_to_rotate += 5.0
         
         cmd = Twist()
         cmd.linear.x = base_speed
-        cmd.angular.z = math.radians(stabilization_angle)
+        cmd.angular.z = math.radians(angle_to_rotate)
         
         cmd.angular.z += math.radians(base_angular)
         if not cmd.angular.z == 0.0:
             cmd.linear.x = base_speed / 4
         
-        if stabilization_angle != 0.0:
+        if angle_to_rotate != 0.0:
             cmd.linear.x = 0.01
+            self.get_logger().info(f'Angle: {angle_to_rotate:.1f}°')
         return cmd
 
     def image_callback(self, msg):

@@ -25,7 +25,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'competition = autorace_core_GBTBoys.GPTBoys:main',
+            'competition = autorace_core_GBTBoys.GPTBoysf:main',
         ],
     },
 )
