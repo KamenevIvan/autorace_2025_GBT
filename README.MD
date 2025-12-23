@@ -1,3 +1,5 @@
+# AutoRace Robot - GBTBoys
+Робот прохходит первые 2 задания
 # Запуск
 ```bash
 colcon build --packages-select autorace_core_GBTBoys
