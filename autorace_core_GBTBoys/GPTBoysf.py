@@ -12,9 +12,9 @@ class Competition(Node):
     def __init__(self):
         super().__init__('competition')
         
-        self.declare_parameter('tolerance_percent', 0.05)
-        self.declare_parameter('linear_speed', 0.02)
-        self.declare_parameter('track_color', [0, 0, 0])
+        self.declare_parameter('tolerance_percent', 0.075)
+        self.declare_parameter('linear_speed', 0.16)
+        self.declare_parameter('track_color', [40, 40, 40])
         self.tolerance_percent = self.get_parameter('tolerance_percent').value
         self.linear_speed = self.get_parameter('linear_speed').value
         self.track_color = np.array(self.get_parameter('track_color').value, dtype=np.uint8)
